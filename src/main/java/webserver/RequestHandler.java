@@ -4,6 +4,7 @@ import model.User;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import util.HttpRequestUtils;
+import util.IOUtils;
 
 import java.io.*;
 import java.net.Socket;
@@ -31,20 +32,34 @@ public class RequestHandler extends Thread {
                 return;
             }
             String[] tokens = line.split(" ");
-
+            int contentLength = 0;
             while (!"".equals(line)) {
                 line = br.readLine();
                 log.debug("header : {}", line);
+                if (line.contains("Content-Length")) {
+                    contentLength = getContentLength(line);
+                }
             }
 
             String url = tokens[1];
-            if (url.startsWith("/user/create")) {
+
+            //post 였을 때 구현 방법
+            if ("/user/create".equals(url)) {
+                String body = IOUtils.readData(br, contentLength);
+                Map<String, String> params = HttpRequestUtils.parseQueryString(body);
+                User user = new User(params.get("userId"), params.get("password"), params.get("name"), params.get("email"));
+                log.debug("User : {} ", user);
+            }
+
+            //form 태크 method : get 였을 때 구현 방법
+            /*if (url.startsWith("/user/create")) {
                 int idx = url.indexOf("?");
                 String queryString = url.substring(idx + 1);
                 Map<String, String> params = HttpRequestUtils.parseQueryString(queryString);
                 User user = new User(params.get("userId"), params.get("password"), params.get("name"), params.get("email"));
                 log.debug("User : {} ", user);
-            } else {
+            }*/
+            else {
                 DataOutputStream dos = new DataOutputStream(out);
                 byte[] body = Files.readAllBytes(new File("./webapp" + tokens[1]).toPath());
                 response200Header(dos, body.length);
@@ -53,6 +68,11 @@ public class RequestHandler extends Thread {
         } catch (IOException e) {
             log.error(e.getMessage());
         }
+    }
+
+    private int getContentLength(String line) {
+        String[] headerTokens = line.split(":");
+        return Integer.parseInt(headerTokens[1].trim());//trim() 메서드는 양 옆의 공백을 지워준다
     }
 
     private void response200Header(DataOutputStream dos, int lengthOfBodyContent) {

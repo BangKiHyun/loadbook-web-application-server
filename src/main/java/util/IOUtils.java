@@ -6,7 +6,7 @@ import java.io.IOException;
 public class IOUtils {
     /**
      * @param br 는
-     *            Request Body를 시작하는 시점이어야
+     *            Request Body를 시작하는 시점이어야한다.
      * @param contentLength 는
      *            Request Header의 Content-Length 값이다.
      * @return
