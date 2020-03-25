@@ -10,7 +10,7 @@ public class DataBase {
     private static Map<String, User> users = Maps.newHashMap();
 
     public static void addUser(User user) {
-        users.put(user.getId(), user);
+        users.put(user.getUserId(), user);
     }
 
     public User findUserById(String id) {
