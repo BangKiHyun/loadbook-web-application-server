@@ -1,5 +1,6 @@
 package webserver;
 
+import db.DataBase;
 import model.User;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -15,6 +16,7 @@ public class RequestHandler extends Thread {
     private static final Logger log = LoggerFactory.getLogger(RequestHandler.class);
 
     private Socket connection;
+    private DataBase dataBase = new DataBase();
 
     public RequestHandler(Socket connectionSocket) {
         this.connection = connectionSocket;
@@ -48,9 +50,26 @@ public class RequestHandler extends Thread {
                 String body = IOUtils.readData(br, contentLength);
                 Map<String, String> params = HttpRequestUtils.parseQueryString(body);
                 User user = new User(params.get("userId"), params.get("password"), params.get("name"), params.get("email"));
+                dataBase.addUser(user);
                 log.debug("User : {} ", user);
                 DataOutputStream dos = new DataOutputStream(out);
                 response302Header(dos, "/index.html");
+            } else if ("/user/login.html".equals(url)) {
+                String body = IOUtils.readData(br, contentLength);
+                Map<String, String> params = HttpRequestUtils.parseQueryString(body);
+                User user = dataBase.findUserById(params.get("userId"));
+
+                DataOutputStream dos = new DataOutputStream(out);
+                if (user == null) {
+                    responseResource(dos, "/user/login_failed.html");
+                    return;
+                }
+
+                if (params.get("userId").equals(user.getUserId()) && (params.get("password").equals(user.getPassword()))) {
+                    response302LoginSuccessHeader(dos, "true", "/index.html");
+                } else {
+                    response302LoginSuccessHeader(dos, "false", "/user/login_failed.html");
+                }
             }
 
             //form 태크 method : get 였을 때 구현 방법
@@ -61,11 +80,10 @@ public class RequestHandler extends Thread {
                 User user = new User(params.get("userId"), params.get("password"), params.get("name"), params.get("email"));
                 log.debug("User : {} ", user);
             }*/
+
             else {
                 DataOutputStream dos = new DataOutputStream(out);
-                byte[] body = Files.readAllBytes(new File("./webapp" + tokens[1]).toPath());
-                response200Header(dos, body.length);
-                responseBody(dos, body);
+                responseResource(dos, url);
             }
         } catch (IOException e) {
             log.error(e.getMessage());
@@ -81,6 +99,23 @@ public class RequestHandler extends Thread {
         try {
             dos.writeBytes("HTTP/1.1 302 Redirect \r\n");
             dos.writeBytes("Location: " + url + " \r\n");
+            dos.writeBytes("\r\n");
+        } catch (IOException e) {
+            log.error(e.getMessage());
+        }
+    }
+
+    private void responseResource(DataOutputStream dos, String url) throws IOException {
+        byte[] body = Files.readAllBytes(new File("./webapp" + url).toPath());
+        response200Header(dos, body.length);
+        responseBody(dos, body);
+    }
+
+    private void response302LoginSuccessHeader(DataOutputStream dos, String status, String url) {
+        try {
+            dos.writeBytes("HTTP/1.1 200 OK \r\n");
+            dos.writeBytes("Set-Cookie: logined=" + status + " \r\n");
+            dos.writeBytes("Location: " + url);
             dos.writeBytes("\r\n");
         } catch (IOException e) {
             log.error(e.getMessage());
