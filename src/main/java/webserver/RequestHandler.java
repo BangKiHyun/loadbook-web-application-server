@@ -49,6 +49,8 @@ public class RequestHandler extends Thread {
                 Map<String, String> params = HttpRequestUtils.parseQueryString(body);
                 User user = new User(params.get("userId"), params.get("password"), params.get("name"), params.get("email"));
                 log.debug("User : {} ", user);
+                DataOutputStream dos = new DataOutputStream(out);
+                response302Header(dos, "/index.html");
             }
 
             //form 태크 method : get 였을 때 구현 방법
@@ -73,6 +75,16 @@ public class RequestHandler extends Thread {
     private int getContentLength(String line) {
         String[] headerTokens = line.split(":");
         return Integer.parseInt(headerTokens[1].trim());//trim() 메서드는 양 옆의 공백을 지워준다
+    }
+
+    private void response302Header(DataOutputStream dos, String url) {
+        try {
+            dos.writeBytes("HTTP/1.1 302 Redirect \r\n");
+            dos.writeBytes("Location: " + url + " \r\n");
+            dos.writeBytes("\r\n");
+        } catch (IOException e) {
+            log.error(e.getMessage());
+        }
     }
 
     private void response200Header(DataOutputStream dos, int lengthOfBodyContent) {
