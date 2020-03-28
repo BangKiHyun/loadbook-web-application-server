@@ -54,7 +54,7 @@ public class RequestHandler extends Thread {
                 log.debug("User : {} ", user);
                 DataOutputStream dos = new DataOutputStream(out);
                 response302Header(dos, "/index.html");
-            } else if ("/user/login.html".equals(url)) {
+            } else if ("/user/login".equals(url)) {
                 String body = IOUtils.readData(br, contentLength);
                 Map<String, String> params = HttpRequestUtils.parseQueryString(body);
                 User user = dataBase.findUserById(params.get("userId"));
@@ -65,10 +65,10 @@ public class RequestHandler extends Thread {
                     return;
                 }
 
-                if (params.get("userId").equals(user.getUserId()) && (params.get("password").equals(user.getPassword()))) {
-                    response302LoginSuccessHeader(dos, "true", "/index.html");
+                if (user.getUserId().equals(params.get("userId")) && user.getPassword().equals(params.get("password"))) {
+                    response302LoginSuccessHeader(dos);
                 } else {
-                    response302LoginSuccessHeader(dos, "false", "/user/login_failed.html");
+                    responseResource(dos, "/user/login_failed.html");
                 }
             }
 
@@ -111,11 +111,11 @@ public class RequestHandler extends Thread {
         responseBody(dos, body);
     }
 
-    private void response302LoginSuccessHeader(DataOutputStream dos, String status, String url) {
+    private void response302LoginSuccessHeader(DataOutputStream dos) {
         try {
-            dos.writeBytes("HTTP/1.1 200 OK \r\n");
-            dos.writeBytes("Set-Cookie: logined=" + status + " \r\n");
-            dos.writeBytes("Location: " + url);
+            dos.writeBytes("HTTP/1.1 302 Redirect \r\n");
+            dos.writeBytes("Location: /index.html \r\n");
+            dos.writeBytes("Set-Cookie: logined=true \r\n");
             dos.writeBytes("\r\n");
         } catch (IOException e) {
             log.error(e.getMessage());
