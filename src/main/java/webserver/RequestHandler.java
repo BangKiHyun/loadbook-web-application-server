@@ -10,6 +10,7 @@ import util.IOUtils;
 import java.io.*;
 import java.net.Socket;
 import java.nio.file.Files;
+import java.util.Collection;
 import java.util.Map;
 
 public class RequestHandler extends Thread {
@@ -35,9 +36,15 @@ public class RequestHandler extends Thread {
             }
             String[] tokens = line.split(" ");
             int contentLength = 0;
+            boolean logined = false;
+
             while (!"".equals(line)) {
                 line = br.readLine();
                 log.debug("header : {}", line);
+                if (line.contains("Cookie")) {
+                    logined = isLogin(line);
+                }
+
                 if (line.contains("Content-Length")) {
                     contentLength = getContentLength(line);
                 }
@@ -70,6 +77,26 @@ public class RequestHandler extends Thread {
                 } else {
                     responseResource(dos, "/user/login_failed.html");
                 }
+            } else if ("/user/list".equals(url)) {
+                DataOutputStream dos = new DataOutputStream(out);
+                if (!logined) {
+                    responseResource(dos, "/user/login.html");
+                }
+
+                Collection<User> users = dataBase.findAll();
+                StringBuilder sb = new StringBuilder();
+                sb.append("<table border='1'>");
+                for (User user : users) {
+                    sb.append("<tr>");
+                    sb.append("<td>" + user.getUserId() + "</td>");
+                    sb.append("<td>" + user.getName() + "</td>");
+                    sb.append("<td>" + user.getEmail() + "</td>");
+                    sb.append("</tr>");
+                }
+                sb.append("</table>");
+                byte[] body = sb.toString().getBytes();
+                response200Header(dos, body.length);
+                responseBody(dos, body);
             }
 
             //form 태크 method : get 였을 때 구현 방법
@@ -88,6 +115,17 @@ public class RequestHandler extends Thread {
         } catch (IOException e) {
             log.error(e.getMessage());
         }
+    }
+
+    private boolean isLogin(String line) {
+        String[] headerToken = line.split(":");
+        Map<String, String> cookie = HttpRequestUtils.parseCookies(headerToken[1].trim());
+        String value = cookie.get("logined");
+
+        if (value == null) {
+            return false;
+        }
+        return Boolean.parseBoolean(value);
     }
 
     private int getContentLength(String line) {
