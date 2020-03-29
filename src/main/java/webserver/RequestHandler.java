@@ -1,17 +1,15 @@
 package webserver;
 
 import db.DataBase;
+import http.HttpRequest;
 import model.User;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-import util.HttpRequestUtils;
-import util.IOUtils;
 
 import java.io.*;
 import java.net.Socket;
 import java.nio.file.Files;
 import java.util.Collection;
-import java.util.Map;
 
 public class RequestHandler extends Thread {
     private static final Logger log = LoggerFactory.getLogger(RequestHandler.class);
@@ -28,43 +26,23 @@ public class RequestHandler extends Thread {
 
         try (InputStream in = connection.getInputStream(); OutputStream out = connection.getOutputStream()) {
             // TODO 사용자 요청에 대한 처리는 이 곳에 구현한다.
-            BufferedReader br = new BufferedReader(new InputStreamReader(in, "UTF-8"));
-            String line = br.readLine();
-            log.debug("request line :  {}", line);
-            if (line == null) {
-                return;
-            }
-            String[] tokens = line.split(" ");
-            int contentLength = 0;
-            boolean logined = false;
-
-            while (!"".equals(line)) {
-                line = br.readLine();
-                log.debug("header : {}", line);
-                if (line.contains("Cookie")) {
-                    logined = isLogin(line);
-                }
-
-                if (line.contains("Content-Length")) {
-                    contentLength = getContentLength(line);
-                }
-            }
-
-            String url = tokens[1];
+            HttpRequest request = new HttpRequest(in);
+            String path = getDefaultPath(request.getPath());
 
             //post 였을 때 구현 방법
-            if ("/user/create".equals(url)) {
-                String body = IOUtils.readData(br, contentLength);
-                Map<String, String> params = HttpRequestUtils.parseQueryString(body);
-                User user = new User(params.get("userId"), params.get("password"), params.get("name"), params.get("email"));
+            if ("/user/create".equals(path)) {
+                User user = new User(
+                        request.getParams("userId"),
+                        request.getParams("password"),
+                        request.getParams("name"),
+                        request.getParams("email")
+                );
                 dataBase.addUser(user);
                 log.debug("User : {} ", user);
                 DataOutputStream dos = new DataOutputStream(out);
                 response302Header(dos, "/index.html");
-            } else if ("/user/login".equals(url)) {
-                String body = IOUtils.readData(br, contentLength);
-                Map<String, String> params = HttpRequestUtils.parseQueryString(body);
-                User user = dataBase.findUserById(params.get("userId"));
+            } else if ("/user/login".equals(path)) {
+                User user = dataBase.findUserById(request.getParams("userId"));
 
                 DataOutputStream dos = new DataOutputStream(out);
                 if (user == null) {
@@ -72,15 +50,16 @@ public class RequestHandler extends Thread {
                     return;
                 }
 
-                if (user.getUserId().equals(params.get("userId")) && user.getPassword().equals(params.get("password"))) {
+                if (user.getUserId().equals(request.getParams("userId")) && user.getPassword().equals(request.getParams("password"))) {
                     response302LoginSuccessHeader(dos);
                 } else {
                     responseResource(dos, "/user/login_failed.html");
                 }
-            } else if ("/user/list".equals(url)) {
+            } else if ("/user/list".equals(path)) {
                 DataOutputStream dos = new DataOutputStream(out);
-                if (!logined) {
+                if (!request.isLogin()) {
                     responseResource(dos, "/user/login.html");
+                    return;
                 }
 
                 Collection<User> users = dataBase.findAll();
@@ -97,31 +76,22 @@ public class RequestHandler extends Thread {
                 byte[] body = sb.toString().getBytes();
                 response200Header(dos, body.length);
                 responseBody(dos, body);
-            } else if (url.endsWith(".css")) {
-                responseCssResource(out, url);
+            } else if (path.endsWith(".css")) {
+                responseCssResource(out, path);
             } else {
                 DataOutputStream dos = new DataOutputStream(out);
-                responseResource(dos, url);
+                responseResource(dos, path);
             }
         } catch (IOException e) {
             log.error(e.getMessage());
         }
     }
 
-    private boolean isLogin(String line) {
-        String[] headerToken = line.split(":");
-        Map<String, String> cookie = HttpRequestUtils.parseCookies(headerToken[1].trim());
-        String value = cookie.get("logined");
-
-        if (value == null) {
-            return false;
+    private String getDefaultPath(String path) {
+        if (path.equals("/")) {
+            return "/index.html";
         }
-        return Boolean.parseBoolean(value);
-    }
-
-    private int getContentLength(String line) {
-        String[] headerTokens = line.split(":");
-        return Integer.parseInt(headerTokens[1].trim());//trim() 메서드는 양 옆의 공백을 지워준다
+        return path;
     }
 
     private void response302Header(DataOutputStream dos, String url) {
