@@ -97,18 +97,9 @@ public class RequestHandler extends Thread {
                 byte[] body = sb.toString().getBytes();
                 response200Header(dos, body.length);
                 responseBody(dos, body);
-            }
-
-            //form 태크 method : get 였을 때 구현 방법
-            /*if (url.startsWith("/user/create")) {
-                int idx = url.indexOf("?");
-                String queryString = url.substring(idx + 1);
-                Map<String, String> params = HttpRequestUtils.parseQueryString(queryString);
-                User user = new User(params.get("userId"), params.get("password"), params.get("name"), params.get("email"));
-                log.debug("User : {} ", user);
-            }*/
-
-            else {
+            } else if (url.endsWith(".css")) {
+                responseCssResource(out, url);
+            } else {
                 DataOutputStream dos = new DataOutputStream(out);
                 responseResource(dos, url);
             }
@@ -154,6 +145,24 @@ public class RequestHandler extends Thread {
             dos.writeBytes("HTTP/1.1 302 Redirect \r\n");
             dos.writeBytes("Location: /index.html \r\n");
             dos.writeBytes("Set-Cookie: logined=true \r\n");
+            dos.writeBytes("\r\n");
+        } catch (IOException e) {
+            log.error(e.getMessage());
+        }
+    }
+
+    private void responseCssResource(OutputStream out, String url) throws IOException {
+        DataOutputStream dos = new DataOutputStream(out);
+        byte[] body = Files.readAllBytes(new File("./webapp" + url).toPath());
+        response200CssHeader(dos, body.length);
+        responseBody(dos, body);
+    }
+
+    private void response200CssHeader(DataOutputStream dos, int lengthOfBodyContent) {
+        try {
+            dos.writeBytes("HTTP/1.1 200 OK \r\n");
+            dos.writeBytes("Content-Type: text/css\r\n");
+            dos.writeBytes("Content-Length: " + lengthOfBodyContent + "\r\n");
             dos.writeBytes("\r\n");
         } catch (IOException e) {
             log.error(e.getMessage());
