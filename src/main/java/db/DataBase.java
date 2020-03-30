@@ -13,7 +13,7 @@ public class DataBase {
         users.put(user.getUserId(), user);
     }
 
-    public User findUserById(String id) {
+    public static User findUserById(String id) {
         return users.get(id);
     }
 
