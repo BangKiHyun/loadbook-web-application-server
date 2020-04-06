@@ -3,6 +3,7 @@ package contoller;
 import db.DataBase;
 import http.HttpRequest;
 import http.HttpResponse;
+import http.HttpSession;
 import model.User;
 
 import java.util.Collection;
@@ -10,6 +11,11 @@ import java.util.Collection;
 public class ListUserController extends AbstractController {
     @Override
     public void doGet(HttpRequest request, HttpResponse response) {
+        if (!isLogined(request.getSession())) {
+            response.sendRedirect("/user/login.html");
+            return;
+        }
+
         Collection<User> users = DataBase.findAll();
         StringBuilder sb = new StringBuilder();
         sb.append("<table border='1'>");
@@ -23,5 +29,14 @@ public class ListUserController extends AbstractController {
         sb.append("</table>");
 
         response.forwardBody(sb.toString());
+    }
+
+    private boolean isLogined(HttpSession session) {
+        Object user = session.getAttribute("user");
+        if (user == null) {
+            return false;
+        }
+
+        return true;
     }
 }

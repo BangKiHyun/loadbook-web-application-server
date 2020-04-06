@@ -3,6 +3,7 @@ package contoller;
 import db.DataBase;
 import http.HttpRequest;
 import http.HttpResponse;
+import http.HttpSession;
 import model.User;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -15,7 +16,8 @@ public class LoginController extends AbstractController {
         User user = DataBase.findUserById(request.getParams("userId"));
         log.debug("User : {}", user);
         if (isLogin(user, request)) {
-            response.addHeader("Set-Cookie", "logined=true");
+            HttpSession session = request.getSession();
+            session.setAttribute("user", user);
             response.sendRedirect("/index.html");
             return;
         }
